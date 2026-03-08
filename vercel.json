@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "outputDirectory": "docs",
   "cleanUrls": true,
   "trailingSlash": false,
   "headers": [
