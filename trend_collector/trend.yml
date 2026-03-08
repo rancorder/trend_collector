@@ -1,0 +1,54 @@
+name: 技術トレンド週次収集
+
+on:
+  schedule:
+    - cron: '0 1 * * 1'   # 毎週月曜 10:00 JST（UTC+9）
+  workflow_dispatch:        # 手動実行ボタンも有効
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write       # GitHub Pagesへのpushに必要
+
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: Python セットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 依存ライブラリインストール
+        run: pip install -r requirements.txt
+
+      - name: トレンド収集実行
+        run: python trend_collector/collect.py
+
+      # レポートをdocsフォルダにコピー（GitHub Pages用）
+      - name: レポートをdocsに配置
+        run: |
+          mkdir -p docs
+          # 最新のHTMLをindex.htmlとしてコピー
+          cp trend_output/report_$(date +%Y%m%d).html docs/index.html
+          # 過去レポートも保持（最新10件）
+          cp trend_output/report_*.html docs/ 2>/dev/null || true
+          ls -la docs/
+
+      # Excelもartifactとして保存（30日間ダウンロード可能）
+      - name: Excelをアーティファクト保存
+        uses: actions/upload-artifact@v4
+        with:
+          name: trend-report-${{ github.run_number }}
+          path: trend_output/*.xlsx
+          retention-days: 30
+
+      # docsをGitHubにpush → Pages自動更新
+      - name: GitHub Pagesにデプロイ
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/
+          git diff --staged --quiet || git commit -m "📡 トレンドレポート更新 $(date +%Y-%m-%d)"
+          git push
